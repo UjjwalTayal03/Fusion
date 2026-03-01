@@ -3,6 +3,9 @@ import ApiError from "../utils/ApiError.js";
 import bcrypt from "bcrypt"
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/generateTokens.js";
+import jwt from "jsonwebtoken"
+import crypto from "crypto"
+import Workspace from "../models/Workspace.js";
 
 export const register = asyncHandler(async (req ,res) => {
     let {name, email, password} = req.body
@@ -38,7 +41,7 @@ export const login = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Insufficient credentials")
     }
 
-    const user = await User.findOne({email})
+    const user = await User.findOne({email}).select("+password")
 
     if(!user)
         throw new ApiError(404, "User doesn't exist")
@@ -71,6 +74,7 @@ export const login = asyncHandler(async (req, res) => {
 })
 
 export const refresh = asyncHandler(async (req, res) => {
+
     const token = req.cookies.refreshToken
 
     if(!token)
@@ -119,4 +123,4 @@ export const logout = asyncHandler(async (req, res) => {
     })
 })
 
-    
+

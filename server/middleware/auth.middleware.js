@@ -1,13 +1,13 @@
 import jwt from "jsonwebtoken"
-import ApiError from "../utils/ApiError"
-import asyncHandler from "../utils/asyncHandler"
-import User from "../models/User"
+import ApiError from "../utils/ApiError.js"
+import asyncHandler from "../utils/asyncHandler.js"
+import User from "../models/User.js"
 
-const protect = asyncHandler(async (req, res) => {
+const protect = asyncHandler(async (req, res, next) => {
     const authHeader = req.headers.authorization
 
     if(!authHeader || !authHeader.startsWith("Bearer "))
-        throw new ApiError(401, "Not autorized")
+        throw new ApiError(401, "Not authorized")
 
     const token = authHeader.split(" ")[1]
 
