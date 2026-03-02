@@ -5,6 +5,8 @@ import errorHandler from "./middleware/error.middleware.js"
 import authRoutes from "./routes/auth.routes.js"
 import testRoutes from "./routes/test.routes.js"
 import workspaceRoutes from "./routes/workspace.routes.js"
+import documentRoutes from "./routes/document.routes.js"
+
 import connectDB from "./config/db.js"
 import cookieParser from "cookie-parser"
 
@@ -21,6 +23,8 @@ app.use(cookieParser())
 app.use("/api/auth", authRoutes)
 app.use("/api/test", testRoutes)
 app.use("/api/workspace", workspaceRoutes)
+app.use("/api/documents", documentRoutes)
+
 app.use(errorHandler)
 
 const PORT = process.env.PORT || 5000

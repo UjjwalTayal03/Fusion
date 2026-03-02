@@ -22,7 +22,12 @@ const workSpaceSchema = new mongoose.Schema({
     owner: {type: mongoose.Schema.Types.ObjectId, ref: "User", required: true},
     members: {type: [memberSchema], default: []},
     inviteToken: {type: String},
-    inviteExpiresAt: {type: Date}
+    inviteExpiresAt: {type: Date},
+
+    documents: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Document"
+    }]
 },{
     timestamps: true
 })
