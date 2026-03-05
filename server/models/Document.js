@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const documentSchema = new mongoose.Schema({
     title: {type: String, required: true},
-    content: {type: Object},
+    content: {type: Object, default: {ops:[]}},
     workspace: {type: mongoose.Schema.Types.ObjectId, ref: "Workspace", required: true},
     createdBy: {type: mongoose.Schema.Types.ObjectId, ref: "User", required: true},
     lastEditedBy: {type: mongoose.Schema.Types.ObjectId, ref: "User", required: true}
