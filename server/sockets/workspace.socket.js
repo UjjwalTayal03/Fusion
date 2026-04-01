@@ -2,27 +2,26 @@ import { addUser, removeUser } from "./presence.store.js"
 
 export default function workspaceSocket(io, socket) {
 
-  socket.on("joinWorkspace", ({ workspaceId, userId }) => {
+  socket.on("joinWorkspace", ({ workspaceId }) => {
 
     const room = `workspace:${workspaceId}`
 
     socket.join(room)
 
     socket.workspaceId = workspaceId
-    socket.userId = userId
 
-    const users = addUser(workspaceId, userId)
+    const users = addUser(workspaceId, socket.user._id.toString())
 
     io.to(room).emit("workspaceUsers", users)
   })
 
 
-  socket.on("sendMessage", ({ workspaceId, message, userId }) => {
+  socket.on("sendMessage", ({ workspaceId, message }) => {
 
     const room = `workspace:${workspaceId}`
 
     io.to(room).emit("receiveMessage", {
-      userId,
+      userId: socket.user._id,
       message,
       createdAt: new Date()
     })
@@ -32,13 +31,14 @@ export default function workspaceSocket(io, socket) {
 
   socket.on("disconnect", () => {
 
-    const { workspaceId, userId } = socket
+    if (!socket.workspaceId) return
 
-    if (!workspaceId || !userId) return
+    const room = `workspace:${socket.workspaceId}`
 
-    const room = `workspace:${workspaceId}`
-
-    const users = removeUser(workspaceId, userId)
+    const users = removeUser(
+      socket.workspaceId,
+      socket.user._id.toString()
+    )
 
     io.to(room).emit("workspaceUsers", users)
 

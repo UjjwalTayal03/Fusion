@@ -1,54 +1,88 @@
-import Document from "../models/Document.js";
+import Document from "../models/Document.js"
+import { addDocUser, removeDocUser } from "./documentPresence.store.js"
 
 export default function documentSocket(io, socket) {
 
   socket.on("joinDocument", async ({ documentId }) => {
 
-  const document = await Document.findById(documentId).populate("workspace")
+    try {
 
-  if (!document) {
-    socket.emit("error", "Document not found")
-    return
-  }
+      const document = await Document.findById(documentId).populate("workspace")
 
-  const isMember = document.workspace.members.some(
-    m => m.user.toString() === socket.user._id.toString()
-  )
+      if (!document) {
+        socket.emit("error", "Document not found")
+        return
+      }
 
-  if (!isMember) {
-    socket.emit("error", "Access denied")
-    return
-  }
+      const isMember = document.workspace.members.some(
+        m => m.user.toString() === socket.user._id.toString()
+      )
 
-  const room = `document:${documentId}`
+      if (!isMember) {
+        socket.emit("error", "Access denied")
+        return
+      }
 
-  socket.join(room)
+      const room = `document:${documentId}`
 
-  socket.documentId = documentId
+      socket.join(room)
 
-  socket.emit("loadDocument", document.content)
+      socket.documentId = documentId
 
-})
+      // presence
+      const users = addDocUser(documentId, socket.user)
+      io.to(room).emit("documentUsers", users)
+
+      // load content
+      socket.emit("loadDocument", document.content)
+
+      console.log(`User ${socket.user._id} joined ${room}`)
+
+    } catch (err) {
+      console.error("joinDocument error:", err)
+    }
+
+  })
 
 
   socket.on("sendDelta", ({ delta }) => {
 
-    const room = `document:${socket.documentId}`;
+    if (!socket.documentId) return
 
-    socket.to(room).emit("receiveDelta", delta);
+    const room = `document:${socket.documentId}`
 
-  });
+    socket.to(room).emit("receiveDelta", delta)
+
+  })
 
 
-  socket.on("cursorMove", ({ userId, range }) => {
+  socket.on("cursorMove", ({ range }) => {
 
-    const room = `document:${socket.documentId}`;
+    if (!socket.documentId) return
+
+    const room = `document:${socket.documentId}`
 
     socket.to(room).emit("cursorUpdate", {
-      userId,
+      userId: socket.user._id,
       range
-    });
+    })
 
-  });
+  })
+
+
+  socket.on("disconnect", () => {
+
+    if (!socket.documentId) return
+
+    const room = `document:${socket.documentId}`
+
+    const users = removeDocUser(
+      socket.documentId,
+      socket.user._id
+    )
+
+    io.to(room).emit("documentUsers", users)
+
+  })
 
 }
