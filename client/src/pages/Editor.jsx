@@ -17,24 +17,60 @@ export default function Editor() {
 
   const [users, setUsers] = useState([])
 
-  // ⚠️ TEMP (replace later with real auth)
-  const token = "YOUR_ACCESS_TOKEN"
-  const documentId = "YOUR_DOCUMENT_ID"
+  // 🔥 IMPORTANT: REMOVE "Bearer "
+  const token = localStorage.getItem("token")
 
-  // 🔌 Init Socket
+  const documentId = "69a3e91338819e70db40fdf4"
+
+  // 🔌 INIT SOCKET
   useEffect(() => {
-    socketRef.current = createSocket(token)
 
-    socketRef.current.on("connect", () => {
-      console.log("Connected:", socketRef.current.id)
+    const socket = createSocket(token)
+    socketRef.current = socket
+
+    socket.on("connect", () => {
+      console.log("Connected:", socket.id)
+    })
+
+    socket.on("connect_error", (err) => {
+      console.log("Socket error:", err.message)
     })
 
     return () => {
-      socketRef.current.disconnect()
+      socket.disconnect()
     }
+
   }, [])
 
-  // 📝 Init Quill
+  useEffect(() => {
+
+  const interval = setInterval(async () => {
+
+    const quill = quillRef.current
+    if (!quill) return
+
+    const content = quill.getContents()
+
+    try {
+      await fetch(`http://localhost:5000/api/documents/${documentId}/content`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ content })
+      })
+    } catch (err) {
+      console.log("Autosave error:", err)
+    }
+
+  }, 2000) // every 2 sec
+
+  return () => clearInterval(interval)
+
+}, [])
+
+  // 📝 INIT QUILL
   useEffect(() => {
 
     if (!wrapperRef.current) return
@@ -56,28 +92,33 @@ export default function Editor() {
 
   }, [])
 
-  // 📥 Load Document
+  // 📥 LOAD DOCUMENT + JOIN ROOM
   useEffect(() => {
 
-    const socket = socketRef.current
-    const quill = quillRef.current
+  const socket = socketRef.current
+  const quill = quillRef.current
 
-    if (!socket || !quill) return
+  if (!socket || !quill) return
 
+  const join = () => {
     socket.emit("joinDocument", { documentId })
+  }
 
-    socket.on("loadDocument", (data) => {
-      quill.setContents(data)
-      quill.enable()
-    })
+  if (socket.connected) {
+    join()
+  } else {
+    socket.once("connect", join)
+  }
 
-    return () => {
-      socket.off("loadDocument")
-    }
+  // 🟢 ONLY enable editing AFTER document loads
+  socket.once("loadDocument", (data) => {
+    quill.setContents(data)
+    quill.enable()
+  })
 
-  }, [])
+}, [])
 
-  // 🔄 Receive Changes
+  // 🔄 RECEIVE DELTAS
   useEffect(() => {
 
     const socket = socketRef.current
@@ -86,7 +127,7 @@ export default function Editor() {
     if (!socket || !quill) return
 
     socket.on("receiveDelta", (delta) => {
-      quill.updateContents(delta)
+      quill.updateContents(delta, "silent")
     })
 
     return () => {
@@ -95,7 +136,7 @@ export default function Editor() {
 
   }, [])
 
-  // 🚀 Send Changes
+  // 🚀 SEND DELTAS
   useEffect(() => {
 
     const socket = socketRef.current
@@ -117,11 +158,10 @@ export default function Editor() {
 
   }, [])
 
-  // 👀 Document Presence
+  //  doc pres.
   useEffect(() => {
 
     const socket = socketRef.current
-
     if (!socket) return
 
     socket.on("documentUsers", (usersList) => {
@@ -137,7 +177,7 @@ export default function Editor() {
   return (
     <div className="h-screen flex flex-col">
 
-      {/* Top bar */}
+      {/* Header */}
       <div className="p-4 border-b">
         <h1>Fusion Editor</h1>
       </div>
