@@ -20,7 +20,8 @@ export default function Editor() {
   // 🔥 IMPORTANT: REMOVE "Bearer "
   const token = localStorage.getItem("token")
 
-  const documentId = "69a3e91338819e70db40fdf4"
+  const params = new URLSearchParams(window.location.search)
+const documentId = params.get("id")
 
   // 🔌 INIT SOCKET
   useEffect(() => {

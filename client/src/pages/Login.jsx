@@ -30,7 +30,7 @@ export default function Login() {
       alert("Login successful")
 
       // 👉 redirect to editor (temporary)
-      window.location.href = "/editor"
+      window.location.href = "/workspace"
 
     } catch (err) {
       alert(err.response?.data?.message || "Login failed")
