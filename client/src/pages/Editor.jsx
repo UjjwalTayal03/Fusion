@@ -4,9 +4,11 @@ import "quill/dist/quill.snow.css"
 import { createSocket } from "../socket"
 
 const TOOLBAR_OPTIONS = [
-  [{ header: [1, 2, 3, false] }],
+  [{ header: [1, 2, false] }],
   ["bold", "italic", "underline"],
-  ["image", "code-block"],
+  [{ list: "bullet" }],
+  ["blockquote"],
+  ["link"],
 ]
 
 export default function Editor() {
@@ -17,63 +19,46 @@ export default function Editor() {
 
   const [users, setUsers] = useState([])
 
-  // 🔥 IMPORTANT: REMOVE "Bearer "
   const token = localStorage.getItem("token")
 
   const params = new URLSearchParams(window.location.search)
-const documentId = params.get("id")
+  const documentId = params.get("id")
 
-  // 🔌 INIT SOCKET
+  // 🔌 SOCKET
   useEffect(() => {
-
     const socket = createSocket(token)
     socketRef.current = socket
 
-    socket.on("connect", () => {
-      console.log("Connected:", socket.id)
-    })
-
-    socket.on("connect_error", (err) => {
-      console.log("Socket error:", err.message)
-    })
-
-    return () => {
-      socket.disconnect()
-    }
-
+    return () => socket.disconnect()
   }, [])
 
+  // 💾 AUTOSAVE
   useEffect(() => {
+    const interval = setInterval(async () => {
+      const quill = quillRef.current
+      if (!quill) return
 
-  const interval = setInterval(async () => {
+      const content = quill.getContents()
 
-    const quill = quillRef.current
-    if (!quill) return
+      try {
+        await fetch(`http://localhost:5000/api/documents/${documentId}/content`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ content })
+        })
+      } catch (err) {
+        console.log("Autosave error:", err)
+      }
+    }, 2000)
 
-    const content = quill.getContents()
-
-    try {
-      await fetch(`http://localhost:5000/api/documents/${documentId}/content`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ content })
-      })
-    } catch (err) {
-      console.log("Autosave error:", err)
-    }
-
-  }, 2000) // every 2 sec
-
-  return () => clearInterval(interval)
-
-}, [])
+    return () => clearInterval(interval)
+  }, [])
 
   // 📝 INIT QUILL
   useEffect(() => {
-
     if (!wrapperRef.current) return
 
     wrapperRef.current.innerHTML = ""
@@ -90,78 +75,60 @@ const documentId = params.get("id")
     quill.setText("Loading...")
 
     quillRef.current = quill
-
   }, [])
 
-  // 📥 LOAD DOCUMENT + JOIN ROOM
+  // 📥 LOAD DOC
   useEffect(() => {
-
-  const socket = socketRef.current
-  const quill = quillRef.current
-
-  if (!socket || !quill) return
-
-  const join = () => {
-    socket.emit("joinDocument", { documentId })
-  }
-
-  if (socket.connected) {
-    join()
-  } else {
-    socket.once("connect", join)
-  }
-
-  // 🟢 ONLY enable editing AFTER document loads
-  socket.once("loadDocument", (data) => {
-    quill.setContents(data)
-    quill.enable()
-  })
-
-}, [])
-
-  // 🔄 RECEIVE DELTAS
-  useEffect(() => {
-
     const socket = socketRef.current
     const quill = quillRef.current
 
+    if (!socket || !quill) return
+
+    const join = () => {
+      socket.emit("joinDocument", { documentId })
+    }
+
+    if (socket.connected) join()
+    else socket.once("connect", join)
+
+    socket.once("loadDocument", (data) => {
+      quill.setContents(data)
+      quill.enable()
+    })
+
+  }, [])
+
+  // 🔄 RECEIVE
+  useEffect(() => {
+    const socket = socketRef.current
+    const quill = quillRef.current
     if (!socket || !quill) return
 
     socket.on("receiveDelta", (delta) => {
       quill.updateContents(delta, "silent")
     })
 
-    return () => {
-      socket.off("receiveDelta")
-    }
-
+    return () => socket.off("receiveDelta")
   }, [])
 
-  // 🚀 SEND DELTAS
+  // 🚀 SEND
   useEffect(() => {
-
     const socket = socketRef.current
     const quill = quillRef.current
-
     if (!socket || !quill) return
 
     const handler = (delta, oldDelta, source) => {
       if (source !== "user") return
-
       socket.emit("sendDelta", { delta })
     }
 
     quill.on("text-change", handler)
-
-    return () => {
-      quill.off("text-change", handler)
-    }
+    return () => quill.off("text-change", handler)
 
   }, [])
 
-  //  doc pres.
+  // 👥 USERS
   useEffect(() => {
-
     const socket = socketRef.current
     if (!socket) return
 
@@ -169,37 +136,47 @@ const documentId = params.get("id")
       setUsers(usersList)
     })
 
-    return () => {
-      socket.off("documentUsers")
-    }
-
+    return () => socket.off("documentUsers")
   }, [])
 
   return (
-    <div className="h-screen flex flex-col">
+  <div className="h-screen flex flex-col bg-[#f5f1ea]">
 
-      {/* Header */}
-      <div className="p-4 border-b">
-        <h1>Fusion Editor</h1>
-      </div>
+    {/* Minimal Top Bar */}
+    <div className="px-6 py-2 text-sm text-gray-500 border-b border-[#e7e1d8] bg-white">
+      Fusion Docs
+    </div>
 
-      {/* Users */}
-      <div className="p-2 border-b">
-        <strong>Active Users:</strong>
-        <div>
-          {users.map((u) => (
-            <span key={u.id} style={{ marginRight: 10 }}>
-              {u.name}
-            </span>
-          ))}
-        </div>
-      </div>
+    {/* Users */}
+    <div className="px-6 py-2 border-b border-[#e7e1d8] bg-[#faf8f4] flex gap-2 flex-wrap">
+      {users.map((u) => (
+        <span
+          key={u.id}
+          className="px-2 py-1 text-xs rounded-full bg-[#e8dfd3] text-gray-700"
+        >
+          {u.name}
+        </span>
+      ))}
+    </div>
 
-      {/* Editor */}
-      <div className="flex-1 overflow-hidden">
-        <div ref={wrapperRef} style={{ height: "100%" }} />
+    {/* Editor Area */}
+    <div className="flex-1 overflow-y-auto flex justify-center py-10">
+
+      <div className="w-full max-w-3xl bg-white shadow-sm rounded-xl border border-[#e7e1d8]">
+
+        {/* Document Title */}
+        <input
+          placeholder="Untitled Document"
+          className="w-full text-2xl font-semibold bg-transparent outline-none px-6 pt-6 text-gray-800"
+        />
+
+        {/* Quill Editor */}
+        <div ref={wrapperRef} />
+
       </div>
 
     </div>
-  )
+
+  </div>
+)
 }

@@ -20,11 +20,9 @@ export default function Register() {
     e.preventDefault()
 
     try {
-
       await API.post("/auth/register", form)
 
       alert("Registered successfully")
-
       window.location.href = "/login"
 
     } catch (err) {
@@ -33,48 +31,61 @@ export default function Register() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f1ea]">
 
-      <h2>Register</h2>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-[#e7e1d8] p-8">
 
-      <form onSubmit={handleSubmit}>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+          Create Account
+        </h2>
 
-        <input
-          type="text"
-          name="name"
-          placeholder="Name"
-          onChange={handleChange}
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-        <br /><br />
+          <input
+            type="text"
+            name="name"
+            placeholder="Full Name"
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg border border-[#e5ded3] bg-[#faf8f4] focus:outline-none focus:ring-2 focus:ring-[#d6cbbd] text-sm"
+          />
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          onChange={handleChange}
-        />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg border border-[#e5ded3] bg-[#faf8f4] focus:outline-none focus:ring-2 focus:ring-[#d6cbbd] text-sm"
+          />
 
-        <br /><br />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg border border-[#e5ded3] bg-[#faf8f4] focus:outline-none focus:ring-2 focus:ring-[#d6cbbd] text-sm"
+          />
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          onChange={handleChange}
-        />
+          <button
+            type="submit"
+            className="w-full py-2 rounded-lg bg-[#e8dfd3] hover:bg-[#ddd2c4] transition text-gray-800 font-medium"
+          >
+            Register
+          </button>
 
-        <br /><br />
+        </form>
 
-        <button type="submit">Register</button>
+        <div className="mt-6 text-center">
 
-      </form>
+          <button
+            onClick={() => window.location.href = "/login"}
+            className="text-sm text-gray-600 hover:text-gray-900 underline"
+          >
+            Already have an account? Login
+          </button>
 
-      <br />
+        </div>
 
-      <button onClick={() => window.location.href = "/login"}>
-        Go to Login
-      </button>
+      </div>
 
     </div>
   )

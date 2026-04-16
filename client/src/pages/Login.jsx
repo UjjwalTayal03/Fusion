@@ -19,17 +19,12 @@ export default function Login() {
     e.preventDefault()
 
     try {
-
       const res = await API.post("/auth/login", form)
-
       const token = res.data.accessToken
 
-      // ✅ store token
       localStorage.setItem("token", token)
 
       alert("Login successful")
-
-      // 👉 redirect to editor (temporary)
       window.location.href = "/workspace"
 
     } catch (err) {
@@ -38,39 +33,55 @@ export default function Login() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f1ea]">
 
-      <h2>Login</h2>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-[#e7e1d8] p-8">
 
-      <form onSubmit={handleSubmit}>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+          Login
+        </h2>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          onChange={handleChange}
-        />
+        
 
-        <br /><br />
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          onChange={handleChange}
-        />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg border border-[#e5ded3] bg-[#faf8f4] focus:outline-none focus:ring-2 focus:ring-[#d6cbbd] text-sm"
+          />
 
-        <br /><br />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg border border-[#e5ded3] bg-[#faf8f4] focus:outline-none focus:ring-2 focus:ring-[#d6cbbd] text-sm"
+          />
 
-        <button type="submit">Login</button>
+          <button
+            type="submit"
+            className="w-full py-2 rounded-lg bg-[#e8dfd3] hover:bg-[#ddd2c4] transition text-gray-800 font-medium"
+          >
+            Login
+          </button>
 
-      </form>
+        </form>
 
-      <br />
+        <div className="mt-6 text-center">
 
-      <button onClick={() => window.location.href = "/register"}>
-        Go to Register
-      </button>
+          <button
+            onClick={() => window.location.href = "/register"}
+            className="text-sm text-gray-600 hover:text-gray-900 underline"
+          >
+            Create an account
+          </button>
+
+        </div>
+
+      </div>
 
     </div>
   )

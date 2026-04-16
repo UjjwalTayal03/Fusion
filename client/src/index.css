@@ -1,0 +1,41 @@
+@import "tailwindcss";
+/* Quill Toolbar */
+.ql-toolbar {
+  border: none !important;
+  border-bottom: 1px solid #e7e1d8 !important;
+  background: #faf8f4;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  padding: 8px;
+}
+
+/* Container */
+.ql-container {
+  border: none !important;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Editor content */
+.ql-editor {
+  min-height: 75vh;
+  padding: 24px;
+  font-size: 15px;
+  color: #2f2f2f;
+  line-height: 1.6;
+}
+
+/* Placeholder */
+.ql-editor.ql-blank::before {
+  color: #a8a29e;
+  font-style: normal;
+}
+
+/* Cursor */
+.ql-editor {
+  caret-color: #6b7280;
+}
+
+/* Selection */
+::selection {
+  background: #e8dfd3;
+}
