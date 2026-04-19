@@ -1,30 +1,32 @@
 import { useEffect, useRef, useState } from "react"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
+import API from "../api"
 import { createSocket } from "../socket"
 
 const TOOLBAR_OPTIONS = [
   [{ header: [1, 2, false] }],
   ["bold", "italic", "underline"],
   [{ list: "bullet" }],
-  ["blockquote"],
   ["link"],
 ]
 
 export default function Editor() {
-
   const wrapperRef = useRef(null)
   const quillRef = useRef(null)
   const socketRef = useRef(null)
 
-  const [users, setUsers] = useState([])
+  const [versions, setVersions] = useState([])
+  const [messages, setMessages] = useState([])
+  const [chatMessage, setChatMessage] = useState("")
 
   const token = localStorage.getItem("token")
 
   const params = new URLSearchParams(window.location.search)
   const documentId = params.get("id")
+  const workspaceId = params.get("workspaceId")
 
-  // 🔌 SOCKET
+  /* ---------------- SOCKET ---------------- */
   useEffect(() => {
     const socket = createSocket(token)
     socketRef.current = socket
@@ -32,32 +34,7 @@ export default function Editor() {
     return () => socket.disconnect()
   }, [])
 
-  // 💾 AUTOSAVE
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const quill = quillRef.current
-      if (!quill) return
-
-      const content = quill.getContents()
-
-      try {
-        await fetch(`http://localhost:5000/api/documents/${documentId}/content`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ content })
-        })
-      } catch (err) {
-        console.log("Autosave error:", err)
-      }
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // 📝 INIT QUILL
+  /* ---------------- QUILL INIT ---------------- */
   useEffect(() => {
     if (!wrapperRef.current) return
 
@@ -77,7 +54,7 @@ export default function Editor() {
     quillRef.current = quill
   }, [])
 
-  // 📥 LOAD DOC
+  /* ---------------- JOIN DOCUMENT ---------------- */
   useEffect(() => {
     const socket = socketRef.current
     const quill = quillRef.current
@@ -86,6 +63,7 @@ export default function Editor() {
 
     const join = () => {
       socket.emit("joinDocument", { documentId })
+      socket.emit("joinWorkspace", { workspaceId })
     }
 
     if (socket.connected) join()
@@ -95,13 +73,13 @@ export default function Editor() {
       quill.setContents(data)
       quill.enable()
     })
-
   }, [])
 
-  // 🔄 RECEIVE
+  /* ---------------- RECEIVE DELTA ---------------- */
   useEffect(() => {
     const socket = socketRef.current
     const quill = quillRef.current
+
     if (!socket || !quill) return
 
     socket.on("receiveDelta", (delta) => {
@@ -111,10 +89,11 @@ export default function Editor() {
     return () => socket.off("receiveDelta")
   }, [])
 
-  // 🚀 SEND
+  /* ---------------- SEND DELTA ---------------- */
   useEffect(() => {
     const socket = socketRef.current
     const quill = quillRef.current
+
     if (!socket || !quill) return
 
     const handler = (delta, oldDelta, source) => {
@@ -123,60 +102,167 @@ export default function Editor() {
     }
 
     quill.on("text-change", handler)
-    return () => quill.off("text-change", handler)
 
+    return () => quill.off("text-change", handler)
   }, [])
 
-  // 👥 USERS
+  /* ---------------- AUTOSAVE ---------------- */
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const quill = quillRef.current
+      if (!quill) return
+
+      try {
+        await API.put(`/documents/${documentId}/content`, {
+          content: quill.getContents(),
+        })
+      } catch (err) {
+        console.log(err)
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  /* ---------------- VERSION HISTORY ---------------- */
+  const fetchVersions = async () => {
+    try {
+      const res = await API.get(`/documents/${documentId}/versions`)
+      setVersions(res.data.versions)
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
+  useEffect(() => {
+    fetchVersions()
+  }, [])
+
+  const handleSaveVersion = async () => {
+    const message = prompt("Enter version message")
+    if (!message) return
+
+    try {
+      await API.post(`/documents/${documentId}/version`, { message })
+      fetchVersions()
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
+  const handleRestore = async (versionId) => {
+    try {
+      const res = await API.post(`/documents/restore/${versionId}`)
+
+      const quill = quillRef.current
+      if (quill) {
+        quill.setContents(res.data.document.content)
+      }
+
+      fetchVersions()
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
+  /* ---------------- CHAT ---------------- */
   useEffect(() => {
     const socket = socketRef.current
     if (!socket) return
 
-    socket.on("documentUsers", (usersList) => {
-      setUsers(usersList)
+    socket.on("receiveMessage", (msg) => {
+      setMessages((prev) => [...prev, msg])
     })
 
-    return () => socket.off("documentUsers")
+    return () => socket.off("receiveMessage")
   }, [])
 
+  const handleSendMessage = () => {
+    if (!chatMessage.trim()) return
+
+    socketRef.current.emit("sendMessage", {
+      workspaceId,
+      message: chatMessage,
+    })
+
+    setChatMessage("")
+  }
+
   return (
-  <div className="h-screen flex flex-col bg-[#f5f1ea]">
+    <div className="h-screen flex overflow-hidden">
 
-    {/* Minimal Top Bar */}
-    <div className="px-6 py-2 text-sm text-gray-500 border-b border-[#e7e1d8] bg-white">
-      Fusion Docs
-    </div>
+      {/* LEFT PANEL */}
+      <div className="w-1/4 border-r flex flex-col">
 
-    {/* Users */}
-    <div className="px-6 py-2 border-b border-[#e7e1d8] bg-[#faf8f4] flex gap-2 flex-wrap">
-      {users.map((u) => (
-        <span
-          key={u.id}
-          className="px-2 py-1 text-xs rounded-full bg-[#e8dfd3] text-gray-700"
-        >
-          {u.name}
-        </span>
-      ))}
-    </div>
+        <div className="p-3 border-b flex justify-between">
+          <h2>Versions</h2>
 
-    {/* Editor Area */}
-    <div className="flex-1 overflow-y-auto flex justify-center py-10">
+          <button onClick={handleSaveVersion}>
+            Save
+          </button>
+        </div>
 
-      <div className="w-full max-w-3xl bg-white shadow-sm rounded-xl border border-[#e7e1d8]">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {versions.map((v) => (
+            <div key={v._id} className="border p-2 rounded">
+              <p>{v.message}</p>
+              <p className="text-xs">{v.editedBy?.name}</p>
 
-        {/* Document Title */}
-        <input
-          placeholder="Untitled Document"
-          className="w-full text-2xl font-semibold bg-transparent outline-none px-6 pt-6 text-gray-800"
-        />
+              <button
+                onClick={() => handleRestore(v._id)}
+                className="text-xs mt-2"
+              >
+                Restore
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        {/* Quill Editor */}
-        <div ref={wrapperRef} />
+      {/* CENTER PANEL */}
+      <div className="w-2/4 flex flex-col">
+
+        <div className="p-3 border-b">
+          <h2>Fusion Docs</h2>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div ref={wrapperRef} />
+        </div>
+
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div className="w-1/4 border-l flex flex-col">
+
+        <div className="p-3 border-b">
+          <h2>Chat</h2>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {messages.map((msg, i) => (
+            <div key={i} className="border p-2 rounded">
+              <p className="text-xs">{msg.userId}</p>
+              <p>{msg.message}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-3 border-t flex gap-2">
+          <input
+            value={chatMessage}
+            onChange={(e) => setChatMessage(e.target.value)}
+            className="flex-1 border px-2 py-1"
+            placeholder="Type..."
+          />
+
+          <button onClick={handleSendMessage}>
+            Send
+          </button>
+        </div>
 
       </div>
 
     </div>
-
-  </div>
-)
+  )
 }
